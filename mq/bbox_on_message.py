@@ -6,14 +6,14 @@ from common.gloabals import Globals
 
 
 def on_message(ch, method, properties, bbox):
-
-    if Globals.sliding_ave_number < 2 or Globals.sliding_ave_number >100:
+    if Globals.sliding_ave_number < 2 or Globals.sliding_ave_number > 100:
         raise Exception("Globals.sliding_ave_number needs to be between 2 and 100")
 
     try:
-        logging.info( f"geo listener on_message {bbox}")
+        logging.info(f"geo listener on_message {bbox}")
 
         lat, lon = get_centroid_from_bbox(bbox)
+
         logging.info(f"geo centroid ({lat},{lon})")
 
         temp_data = get_temperature(lat, lon)
@@ -23,6 +23,8 @@ def on_message(ch, method, properties, bbox):
             routing_key = temp_data['loc_key']
             logging.info(f"geo temp ({lat},{lon}) loc = {routing_key} temp_data = {temp_data}\n")
 
+            # store temperature in list
+            # { loc-key-a : [ temp, ...], loc-key-b : [ temp, ...] , ...
             temp = temp_data['temp']
 
             if not routing_key in Globals.mapGeoToTemp:
@@ -33,7 +35,6 @@ def on_message(ch, method, properties, bbox):
                 channel.queue_declare(queue=routing_key)
                 logging.info(f"create list for key {routing_key}")
                 Globals.mapGeoToTemp[routing_key] = []
-
             logging.info(f"Append temp temp{temp} to list {routing_key}")
             Globals.mapGeoToTemp[routing_key].append(temp)
 
@@ -41,8 +42,7 @@ def on_message(ch, method, properties, bbox):
             if Globals.is_console_printing:
                 print('queue-loc', routing_key, 'last read', temp, 'history', Globals.mapGeoToTemp[routing_key])
 
-
-            # Write Temperatures filet
+            # append to Temperatures.csv file
             temp_file = open("../logs/Temperatures.txt", "a")
             temp_file.writelines(f"{routing_key},{temp}\n")
             temp_file.close()
@@ -70,8 +70,8 @@ def on_message(ch, method, properties, bbox):
                 Globals.basic_publish(exchange='',
                                       routing_key=routing_key,
                                       body=ave)
-            else:
-                logging.error(f"request on {lat} and {lon} did not return success {temp_data}")
+        else:
+            logging.error(f"request on {lat} and {lon} did not return success {temp_data}")
 
     except Exception as e:
         print(f"geo listener on_message error {e}")
