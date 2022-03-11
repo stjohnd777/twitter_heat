@@ -1,207 +1,130 @@
-- ### Requirements
-  - #### Continuously calculate the sliding avg of the temperatures 
-    - High level correlate by location temperature averages ( by n ) across all locations.
-  - ####  The number 'sliding average n' is configurable. 
-    - The input value ‘n’ should be between 2 and 100
-  - #### The output 2 files
-    - file for the stream of temperatures in fahrenheit
-    - file for the stream of the sliding averages.
+### Requirements
+  - #### Continuously calculate the sliding avg of the temperatures from Tweets across all locations of the last n tweets.
+  - ####  The number 'sliding average n' should be configurable at startup time. 
+  - #### The input value ‘n’ should be between 2 and 100
+  - #### The output of your pipeline should be 2 files
+    - file for the stream of loc/temperatures in fahrenheit
+    - file for the stream of the sliding loc/averages.
   - ####  provide a high-level diagram of how you would deploy your solution
+  
+---
+
+### Functional requirements
+- The number of tweets to calculate the sliding average over should be configurable at startup time. 
+- The input value ‘n’ should be between 2 and 100
+- The output of your mini-pipeline should be 2 files, one for the stream of temperatures in fahrenheit and 1 file for the stream of the sliding averages.
+
+### Non functional requirements
+- Your solution should be
+  - [x] efficient
+  - [x] scalable
+- If you are relying on any libraries or frameworks
+  - request
+  - pika
+    - [x] best practices in the ecosystem.
+- We will be evaluating your code for 
+  - [X] readability
+  - [X] correctness. 
+- Treat this like a work submission
+  - THIS MEANS 
+    - [ ] tests positive and negative
+    - [x] proper formatting
+    - [x] proper naming
+    - [x] proper documentation
+    - [x] proper error handling
+    - [x] proper logging logging
+
+  
+### Overview
+
+- This solution is a message queue solution. 
+- Tweets consumer(s) filtering tweets that have geolocation. 
+- The geoloaction bound-box is published to a queue Q. 
+- Message listener(s) on Q 
+  - computed the centroid 
+  - contract the Weather API to get the temperature and extended geolocation. 
+  - The temperature are correlated by location. 
+  - The sliding averages are computed accordingly softly. 
+  - The loc/temp data is logged to a files. We have two files, the temp/loc and loc/ave(n) file. 
+  - The files are under logs directory.
 
 
-#### Tweets
-- Twitter Streaming API Streams provides about 1% of all Tweets in real-time.
-  - Needed Dev Account: Free
-    - Get You Bearer Token: 
-      - AAAAAAAAAAAAAAAAAAAAAAUuZQEAAAAAqaII840%2FTj93kIBq9aRxLZ%2FQc40%3DCU80Ke6nk8Phm8RdQJTmbfYpumNVTra7CFx0B8bQSNV8LL7ZVQ
-    - Get Your API Key: 
-      - B9ldwMgYsaPqk9g4pTkQl0gx9 
-    - Get Your API Key Secret: 
-      - P0Kzb0rnzyiRqlGsxCPsXVZa4ErsJrQgHDmJNX9c5TPoIuMYw7
+logs/Temperatures.csv
+```csv
+Germany-Hessen-Wehlheiden,39.2
+Somalia-Jubbada Hoose-Mido,77.9
+Yemen-Dhamar-Samhon,72.9
+Seychelles Islands-Beau Vallon-Anse Volbert Village,81.1
+```
+logs/Averages.csv
+```csv
+United States of America-Kansas-Mount Vernon, 36.28
+```
 
-### API
-  - GET /2/tweets/sample/stream
-    - https://developer.twitter.com/en/docs/twitter-api/tweets/volume-streams/api-reference/get-tweets-sample-stream
-    - https://api.twitter.com/2/tweets/sample/stream
+---
 
-### Curl
-    - curl https://api.twitter.com/2/tweets/sample/stream -H "Authorization: Bearer $BEARER_TOKEN"
+ ![](imgs/arch_high.png)
+
+### Remark: 
+- Twitter Streaming API Streams provides about 1% of all Tweets in real-time. 
+- About 1% of streamer tweets have geo-location
+
+### Scaling
+
+- run more publisher to scale on tweet publisher
+- run more consumers to scale on temperature averages
+
+## Running the code
+- git clone git@github.com:stjohnd777/twitter_heat.git
+- docker
+  - https://hub.docker.com/_/rabbitmq
+  - docker pull rabbitmq
+  - docker run -d --hostname my-rabbit --name some-rabbit rabbitmq:3
+- cd twitter_head
+- pip install pika
+- pip install requests
+
+### Many possible deployment
+
+- The simplest
+
+ ![](imgs/docker.png)
+---
+### Running the code
+
+- option 1
+  - run publishers and consumers as process
+  - py mq/publish_tweet.py
+  - py mq/consume_tweet.py
+  - one can run many publishers and consumers
+- option 2
+  - py mq/main.js
+  - configure number_temp_listeners and number_temp_listeners in Globals 
+  - option one scales in process option two scales in thread
+
+Remark:
+- More effort needed here with threading and process, but for this exercise with time box it was not done.
+- Unit Testing is needed, but for this exercise with time box it was not done.
+---
+### configuration option are in the globals.py
 
 ```python
-    uri = 'https://api.twitter.com/2/tweets/sample/stream' \
-          '?expansions=author_id,geo.place_id' \
-          '&tweet.fields=geo' \
-          '&user.fields=location' \
-          '&place.fields=geo,country'
-```
-### Remark
 
-Almost all the tweets do no contain geolocation. Maybe about 1%. This percentage will be calculated for my 
-own sanity.
-
-What I am getting back
-
-```json
-{
-  'data': {
-    'author_id': '4625949075', 
-    geo': {'place_id': 'c0b8e8dc81930292'}, 
-    'id': '1502328133806170115', 
-    'text': 'aoty lolz https://t.co/6j06LMzRzM'
-  }, 
-  'includes': {
-    'users': [{
-          'id': '4625949075', 
-          'location': 'Queens, NY', 
-          'name': 'kas', 
-          'username': 'niketotebag'}
-    ], 
-    'places': [{
-      'country': 'United States', 
-      'full_name': 'Baltimore, MD', 
-      'geo': {'type': 'Feature', 'bbox': [-76.7115205, 39.197211, -76.529443, 39.372215], 'properties': {}}, 
-      'id': 'c0b8e8dc81930292'}
-    ]
-  }
-}
-
-bbox = tweet['includes']['places'][0]['geo']['bbox']
-[-76.7115205, 39.197211, -76.529443, 39.372215]
-
-```
-What I was expecting
-```json
-{
-  "geo": {
-    "type": "Point",
-    "coordinates": [40.0160921, -105.2812196]
-  },
-  "coordinates": {
-    "type": "Point",
-    "coordinates": [-105.2812196, 40.0160921]
-  }
-}
+class Globals:
+    is_console_printing = True
+    number_temp_listeners =1
+    number_temp_listeners = 1
+    uri_tweet_stream = ''
+    headers_tweet_stream = 
+    sliding_ave_number = 5
+    @staticmethod
+    def getWeatherUri(lat,lon):
+        uri_weather = f"http://api.weatherapi.com/v1/forecast.json?key=2d15b642528c4b7093412604221202&q={lat},{lon}&days=1&aqi=no&alerts=no"
+        return uri_weather
+    rabbit_host = "localhost"
+    tweets_with_geo_queue = 'Q2'
+    log_file_publisher = 'twitter_publisher.log'
+    log_file_consumer = 'twitter_consumer.log'
+    mapGeoToTemp = {}
 ```
 
-     
-     if 'geo' in tweet['data']:
-         geo = tweet['data']['geo']
-         if 'coordinates' in geo:
-             lat = geo['coordinates'][0]
-             lon = geo['coordinates'][1]
-     elif 'coordinates' in tweet:
-         coord = tweet['coordinates']
-         if 'coordinates' in coord:
-             lat = coord['coordinates'][1]
-             lon = coord['coordinates'][0]
-     else:
-         pass
-
-    print(data)
-    ddata = data['data']
-    print(ddata)
-    geo = ddata['geo']
-    print(geo)
-    includes = data['includes']
-    print(includes)
-    users = includes['users']
-    for u in users:
-        location = u['location']
-        print(location)
-
-
-#### Since this is a streaming API one needs to iter on the content
-```python
-  req = requests.get(uri, stream=True, headers=headers)
-
-  for tweet in req.iter_content(chunk_size=8192):
-      try:
-          tweet = tweet.decode("utf-8")
-          # print(tweet)
-          data = json.loads(tweet)
-          print(data)
-      except:
-          pass
-
-```
-
-#### Tweet data, there are two classes of geographical metadata:
-- Tweet location 
-  - Available when user shares location at time of Tweet.
-- Account Location 
-  - Based on the ‘home’ location provided by user in their public profile. 
-  - This is a free-form character field and may or may not contain metadata that can be geo-referenced.
-
-#### Weather
-Castle Rock CO 39.3722° N, 104.8561° W
-Latitude and Longitude (Decimal degree) e.g: q=39.3722,104.8561
-API Key: 2d15b642528c4b7093412604221202
-http://api.weatherapi.com/v1/forecast.json?key=2d15b642528c4b7093412604221202&q=39.3722,-104.8561&days=1&aqi=no&alerts=no
-
-#### Base URL: http://api.weatherapi.com/v1
-
-#### The solution philosophy
-- Tweets are asynchronous data streams thus Observables
-- The Observer subscribe to the Tweet events
-- The Observable notifies the subscribed Observers whenever an Tweet event occurs. 
-- Because Observable sequences are streams we can filter, split, map, and compose 
-
-#### Solution Stack
-- request
-- RxPy
-- Docker
-
-````json
-ex = {
-    "data": {
-        "author_id": "568603156",
-        "geo": {
-            "coordinates": {
-                "type": "Point",
-                "coordinates": [
-                    -53.45424491,
-                    -33.69241331
-                ]
-            },
-            "place_id": "f52168789ed14255"
-        },
-        "id": "1498469999064854529",
-        "text": "No podía faltar el asadito de carnaval. en Barra del Chuy Uruguay https://t.co/Slxkfj9jZQ"
-    },
-    "includes": {
-        "users": [
-            {
-                "id": "568603156",
-                "location": "Montevideo uruguay ",
-                "name": "diego langone",
-                "username": "diegolangone72"
-            }
-        ],
-        "places": [
-            {
-                "country": "Brazil",
-                "full_name": "Chuí, Brasil",
-                "geo": {
-                    "type": "Feature",
-                    "bbox": [
-                        -53.522829,
-                        -33.7429063,
-                        -53.3015424,
-                        -33.5561242
-                    ],
-                    "properties": {
-
-                    }
-                },
-                "id": "f52168789ed14255"
-            }
-        ]
-    }
-}
-
-
-````
-curl --request GET 'https://api.twitter.com/2/tweets?ids=1136048014974423040&expansions=geo.place_id&place.fields=contained_within,country,country_code,full_name,geo,id,name,place_type' --header 'Authorization: Bearer AAAAAAAAAAAAAAAAAAAAAAUuZQEAAAAAqaII840%2FTj93kIBq9aRxLZ%2FQc40%3DCU80Ke6nk8Phm8RdQJTmbfYpumNVTra7CFx0B8bQSNV8LL7ZVQ'
-
-curl "https://api.twitter.com/2/tweets/sample/stream?expansions=geo.place_id&place.fields=name,country,country_code,place_type,contained_within,geo" -H "Authorization: Bearer AAAAAAAAAAAAAAAAAAAAAAUuZQEAAAAAqaII840%2FTj93kIBq9aRxLZ%2FQc40%3DCU80Ke6nk8Phm8RdQJTmbfYpumNVTra7CFx0B8bQSNV8LL7ZVQ"
-````
