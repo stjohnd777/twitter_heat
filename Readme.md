@@ -105,6 +105,13 @@ United States of America-Kansas-Mount Vernon, 36.28
 Remark:
 - More effort needed here with threading and process, but for this exercise with time box it was not done.
 - Unit Testing is needed, but for this exercise with time box it was not done.
+
+### Remark Critical
+- Can not scale tweet consumers as is
+- Can do it with one more queue
+- We can talk about this
+
+
 ---
 ### configuration option are in the globals.py
 
