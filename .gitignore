@@ -183,7 +183,7 @@ instance/
 .scrapy
 
 # Sphinx documentation
-docs/_build/
+imgs/_build/
 
 # PyBuilder
 .pybuilder/

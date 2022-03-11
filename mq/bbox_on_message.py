@@ -1,26 +1,29 @@
 import json, logging, pika
+
+from common.get_centroid_from_bbox import get_centroid_from_bbox
 from common.get_temperature_from_lat_lon import get_temperature
 from common.gloabals import Globals
 
 
 def on_message(ch, method, properties, bbox):
 
+    if Globals.sliding_ave_number < 2 or Globals.sliding_ave_number >100:
+        raise Exception("Globals.sliding_ave_number needs to be between 2 and 100")
+
     try:
         logging.info( f"geo listener on_message {bbox}")
 
-        bbox = bbox.decode("utf-8")
-        bbox = json.loads(bbox)
-        lat = (bbox[0] + bbox[2]) / 2
-        lon = (bbox[1] + bbox[3]) / 2
+        lat, lon = get_centroid_from_bbox(bbox)
         logging.info(f"geo centroid ({lat},{lon})")
 
         temp_data = get_temperature(lat, lon)
-        logging.info(f"geo listener centroid ({lat},{lon}) temp = {temp_data}")
 
         if temp_data['success']:
 
-            temp = temp_data['temp']
             routing_key = temp_data['loc_key']
+            logging.info(f"geo temp ({lat},{lon}) loc = {routing_key} temp_data = {temp_data}\n")
+
+            temp = temp_data['temp']
 
             if not routing_key in Globals.mapGeoToTemp:
                 logging.info(f"encountered new geo key {routing_key}")
@@ -41,7 +44,7 @@ def on_message(ch, method, properties, bbox):
 
             # Write Temperatures filet
             temp_file = open("../logs/Temperatures.txt", "a")
-            temp_file.writelines(f"{routing_key},{temp}")
+            temp_file.writelines(f"{routing_key},{temp}\n")
             temp_file.close()
 
             if len(Globals.mapGeoToTemp[routing_key]) >= Globals.sliding_ave_number:
@@ -58,7 +61,7 @@ def on_message(ch, method, properties, bbox):
                 ave_file.writelines(f"{routing_key},{ave}")
                 ave_file.close()
 
-                # Rested Running Average List
+                # Re-set Running Average List
                 logging.info(f"reset running average list on location key {routing_key}")
                 Globals.mapGeoToTemp[routing_key] = []
 
