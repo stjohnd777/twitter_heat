@@ -3,6 +3,9 @@ class Globals:
     # print to console
     is_console_printing = True
 
+    log_tweets = True
+    tweets_log = "../logs/tweets"
+
     # scaling on publishers
     number_tweet_publishers =1
 
@@ -42,8 +45,8 @@ class Globals:
     log_file_publisher_consumer = 'twitter_publisher_consumer.log'
 
     # functional file requirements
-    file_temps = 'Temos.csv'
-    file_averages = 'Averages.csv'
+    file_temps = '../logs/Temperatures.csv'
+    file_averages = '../logs/Averages.csv'
 
     # list for computing running averages
     mapGeoToTemp = {}

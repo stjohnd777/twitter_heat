@@ -7,6 +7,8 @@ def tweet_has_geo(tweet):
     :param tweet:
     :return:
     """
+    # return tweet['includes']['places'][0]['geo']['bbox']
+
     if 'includes' in tweet:
         includes = tweet['includes']
         if 'places' in includes:

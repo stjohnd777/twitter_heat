@@ -45,11 +45,18 @@ def tweet_stream(receiver: Observer):
             atweet = atweet.decode("utf-8")
             json_tweet = json.loads(atweet)
             logging.info(f"tweet received: {atweet}")
+            if Globals.log_tweets :
+                tweets_file = open(Globals.log_tweets, "a")
+                tweets_file.writelines(atweet)
+                tweets_file.close()
+
             if Globals.is_console_printing:
                 print(atweet)
             receiver.notify(json_tweet)
         except :
             logging.error(f"error receiving tweet")
+
+    logging.info(f"tweet stream ended {req}")
 
 
 if __name__ == '__main__':

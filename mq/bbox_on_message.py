@@ -33,6 +33,7 @@ def on_message(ch, method, properties, bbox):
                 connection = pika.BlockingConnection(pika.ConnectionParameters(Globals.rabbit_host))
                 channel = connection.channel()
                 channel.queue_declare(queue=routing_key)
+                channel.queue_declare(queue=f"ave-{routing_key}")
                 logging.info(f"create list for key {routing_key}")
                 Globals.mapGeoToTemp[routing_key] = []
             logging.info(f"Append temp temp{temp} to list {routing_key}")
@@ -43,9 +44,13 @@ def on_message(ch, method, properties, bbox):
                 print('queue-loc', routing_key, 'last read', temp, 'history', Globals.mapGeoToTemp[routing_key])
 
             # append to Temperatures.csv file
-            temp_file = open("../logs/Temperatures.txt", "a")
-            temp_file.writelines(f"{routing_key},{temp}\n")
+            temp_file = open(Globals.file_temps, "a")
+            temp_file.writelines(f"ave-{routing_key},{temp}\n")
             temp_file.close()
+
+            loc_temp_file = open(f"../logs/{routing_key}", "a")
+            loc_temp_file.writelines(f"{temp}")
+            loc_temp_file.close()
 
             if len(Globals.mapGeoToTemp[routing_key]) >= Globals.sliding_ave_number:
                 lst = Globals.mapGeoToTemp[routing_key]
@@ -57,9 +62,13 @@ def on_message(ch, method, properties, bbox):
                 logging.info(f" computed average over {Globals.sliding_ave_number},  publish on {routing_key} =  {ave}")
 
                 # Write Average on location to File
-                ave_file = open("../logs/Averages.txt", "a")
+                ave_file = open(Globals.file_averages, "a")
                 ave_file.writelines(f"{routing_key},{ave}")
                 ave_file.close()
+
+                loc_ave_file = open(f"../logs/ave-{routing_key}", "a")
+                loc_ave_file.writelines(f"{ave}")
+                loc_ave_file.close()
 
                 # Re-set Running Average List
                 logging.info(f"reset running average list on location key {routing_key}")
